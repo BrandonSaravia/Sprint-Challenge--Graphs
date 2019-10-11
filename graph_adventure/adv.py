@@ -4,6 +4,33 @@ from world import World
 
 import random
 
+class Queue():
+    def __init__(self):
+        self.queue = []
+    def enqueue(self, value):
+        self.queue.append(value)
+    def dequeue(self):
+        if self.size() > 0:
+            return self.queue.pop(0)
+        else:
+            return None
+    def size(self):
+        return len(self.queue)
+
+class Stack():
+    def __init__(self):
+        self.stack = []
+    def push(self, value):
+        self.stack.append(value)
+    def pop(self):
+        if self.size() > 0:
+            return self.stack.pop()
+        else:
+            return None
+    def size(self):
+        return len(self.stack)
+
+
 # Load world
 world = World()
 
@@ -19,15 +46,91 @@ world.loadGraph(roomGraph)
 world.printRooms()
 player = Player("Name", world.startingRoom)
 
+def findShortestRouteToUnvisited(current_room, visited):
+    qq = Queue()
+    qq.enqueue([current_room])
+    passed_through = set()
+    while qq.size() > 0:
+        path = qq.dequeue()
+        room = path[-1]
+        if room in visited and room not in passed_through:
+            passed_through.add(room)
+            exits = room.getExits()
+            for direction in exits:
+                exit_room = room.getRoomInDirection(direction)
+                if exit_room not in visited:
+                    return path
+                else:
+                    new_path = list(path)
+                    new_path.append(exit_room)
+                    qq.enqueue(new_path)
 
-# FILL THIS IN
-traversalPath = ['n', 's']
-
+# set up traversalPath for player to move
+traversalPath = []
+# keep track of already visited rooms and initiate stack for dft
+visited_rooms = set()
+stack = Stack()
+# push first node into stack to start while loop
+stack.push(player.currentRoom)
+while stack.size() > 0:
+    # grab last item entered into stack and check if it has been visited before
+    current_room = stack.pop()
+    if current_room not in visited_rooms:
+        # if the current room the player is in has not been visited add it to the visited set
+        visited_rooms.add(player.currentRoom)
+        # get all optional room exits player can go  
+        exits = current_room.getExits()
+        # create a unsearched list to hold all exits that have not been visited and then loop through all current_rooms exits
+        unsearched = []
+        for direction in exits:
+            # get room in exits direction and check if it has been visited
+            next_room = current_room.getRoomInDirection(direction)
+            if next_room not in visited_rooms:
+                # if not visited add tuple of (direction = ("n", "s", "e", or "w"), room object in that direction) to the unsearched list
+                unsearched.append((direction, next_room))
+        # check if there are any directions to go in the unsearched list
+        if len(unsearched) > 0:
+            # choose random path from unsearched list 
+            random_path = random.choice(unsearched)
+            # push room object to stack, move player to that room, and append direction into traversalPath 
+            stack.push(random_path[1])
+            player.travel(random_path[0])
+            traversalPath.append(random_path[0])
+        else:
+            # check if any more rooms are not visited
+            if len(visited_rooms) != len(roomGraph):
+                # do bfs to get fastest path of room ids back to room with unsearched exits
+                x = findShortestRouteToUnvisited(current_room, visited_rooms)
+                # add directions back to room with exits
+                # loop through x and set up unsearched list for selecting random room
+                unsearched = []
+                for room in range(0, len(x)):
+                    # get rooms exits and loop through each direction
+                    exits = x[room].getExits()
+                    for direction in exits:
+                        # get room in direction
+                        next_room = x[room].getRoomInDirection(direction)
+                        # check to see if it is the final room
+                        if x[room] != x[-1]:
+                            # if not check to see if following room matches up with the x path
+                            if x[room + 1] == next_room:
+                                # add direction to traversalPath if it matched up
+                                traversalPath.append(direction)
+                        else:
+                            # if room is final room in x check the rooms around it if they have been visited
+                            if next_room not in visited_rooms:
+                                # add to unsearched if they have not been visited
+                                unsearched.append((direction, next_room))
+                random_path = random.choice(unsearched)
+                stack.push(random_path[1])
+                player.currentRoom = x[-1]
+                player.travel(random_path[0])
+                traversalPath.append(random_path[0])
 
 # TRAVERSAL TEST
-visited_rooms = set()
+# visited_rooms = set()
 player.currentRoom = world.startingRoom
-visited_rooms.add(player.currentRoom)
+# visited_rooms.add(player.currentRoom)
 for move in traversalPath:
     player.travel(move)
     visited_rooms.add(player.currentRoom)
